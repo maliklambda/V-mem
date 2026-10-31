@@ -5,6 +5,7 @@ pub type VAddr = u32;
 pub type PageOffset = u16;
 
 /// Structure of a virtual address
+#[derive(Debug)]
 pub struct VAddrSplit {
     /// Indices into page table
     pub lower: VAddrLowerSplit,
@@ -53,6 +54,7 @@ fn test_v_addr_split_join() {
 /// Correspond to level and pt-node-array indices.
 pub type VAddrLower = u16;
 
+#[derive(Debug)]
 pub struct VAddrLowerSplit {
     /// Currently unused!
     /// Index into intermediate page tables
