@@ -9,6 +9,8 @@ fn main() {
     let mut mmu = MMU::default();
     mmu.allocate_pt(pid1).unwrap();
     mmu.allocate_pt(pid2).unwrap();
-    mmu.allocate_mem_page(pid1).unwrap();
+    let v_addr = mmu.allocate_mem_page(pid1).unwrap();
+    println!("{:?}", mmu.data[0]);
+    let (mem_page, offset) = mmu.fetch_mem_page(pid1, v_addr).unwrap();
     println!("{:?}", mmu);
 }

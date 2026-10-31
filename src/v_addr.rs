@@ -1,31 +1,29 @@
-
 /// Virtual address
 pub type VAddr = u32;
 
-/// Page Frame ID (upper bits in Vitrual Addr)
-pub type PageFrameId = u16;
+/// Offset in Memory Page (upper bits in Vitrual Addr)
+pub type PageOffset = u16;
 
 /// Structure of a virtual address
 pub struct VAddrSplit {
     /// Indices into page table
     pub lower: VAddrLowerSplit,
 
-    /// Page Frame Identifier
-    /// Either address physical RAM or offset on disk
-    pub pf_id: PageFrameId,
+    /// Memory Page Offset into physical memory page
+    pub offset: PageOffset,
 }
 
 impl VAddrSplit {
-    pub fn new(lower: VAddrLower, pf_id: PageFrameId) -> Self {
+    pub fn new(lower: VAddrLower, offset: PageOffset) -> Self {
         Self {
             lower: VAddrLowerSplit::from(lower),
-            pf_id,
+            offset,
         }
     }
 
     pub fn join(&self) -> VAddr {
         let lower_joined: VAddrLower = self.lower.join();
-        ((lower_joined as VAddr) << 16) | self.pf_id as VAddr
+        ((lower_joined as VAddr) << 16) | self.offset as VAddr
     }
 }
 
@@ -33,8 +31,8 @@ impl From<VAddr> for VAddrSplit {
     fn from(value: VAddr) -> Self {
         let low_bits = (value >> 16) as VAddrLower;
         let lower = VAddrLowerSplit::from(low_bits);
-        let pf_id = (value & 0xffff) as PageFrameId;
-        Self { lower, pf_id }
+        let offset = (value & 0xffff) as PageOffset;
+        Self { lower, offset }
     }
 }
 

@@ -1,5 +1,7 @@
-use crate::v_addr::{PageFrameId, VAddr, VAddrLower, VAddrLowerSplit, VAddrSplit};
-
+use crate::{
+    mmu::PageFrameId,
+    v_addr::{VAddr, VAddrLower, VAddrLowerSplit, VAddrSplit},
+};
 
 /// Indicates the number of levels of the PT.
 /// The last level carries the physical addresses.
@@ -38,10 +40,11 @@ impl PageTable {
         // check for bounds on virtual address space: if latest > MAX_V_ADDR_SIZE {...}
 
         let v_addr_lower: VAddrLower = self.latest + 1;
+        let v_addr_lower_split = VAddrLowerSplit::from(v_addr_lower);
         self.add_pte(v_addr_lower, page_frame_id)
             .ok_or(String::from("Failed allocation of new PTE"))?;
         self.latest += 1;
-        let v_addr_split = VAddrSplit::new(v_addr_lower, page_frame_id);
+        let v_addr_split = VAddrSplit::new(v_addr_lower, 0); // zero because address is not needed.
         Ok(v_addr_split.join())
     }
 
@@ -50,6 +53,17 @@ impl PageTable {
         self.levels[lower_split.level_idx as usize].values[lower_split.pt_node_arr_idx as usize] =
             PtNodeEntry::new(page_frame_id);
         Some(())
+    }
+
+    /// Retrieves a memory page
+    /// Returns the page table entry
+    pub fn get_pte(&self, v_addr_lower: VAddrLower) -> Result<&PtNodeEntry, String> {
+        if v_addr_lower > self.latest {
+            return Err(format!("Invalid address: {v_addr_lower}"));
+        }
+        let lower_split = VAddrLowerSplit::from(v_addr_lower);
+        Ok(&self.levels[lower_split.level_idx as usize].values
+            [lower_split.pt_node_arr_idx as usize])
     }
 }
 
@@ -80,6 +94,7 @@ impl PtNodeEntry {
     pub fn new(page_frame_id: PageFrameId) -> Self {
         Self {
             page_frame_id,
+            p_bit: true,
             ..Default::default()
         }
     }
@@ -88,7 +103,7 @@ impl PtNodeEntry {
 pub const MEMPAGE_SIZE: usize = 5;
 
 /// Memory page.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct MemPage {
     pub data: [u8; MEMPAGE_SIZE],
 }
