@@ -16,3 +16,7 @@ The upper ones are an offset into the virtual/physical memory page.
 This implies that memory pages may be 2^16 bytes (as 16 bits are available for the offset) long at most.
 The lower 16 bits are split into 8 bits for the level index into multi-level page tables (currently only a single level is supported)
 and 8 bits for the index into the resulting PageTableEntry.
+
+## Swapping
+Pages are swapped out to disk (emulated by a single binary file) when the physical memory is full.
+Since pages have a max-size of 16KiB and another 16bits make up a virtual address, the virtual address space that is available to every process is around 4GBs.
