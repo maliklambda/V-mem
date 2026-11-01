@@ -73,6 +73,25 @@ impl MMU {
         Ok(v_addr)
     }
 
+    /// Writes to a memory page.
+    pub fn write_to_mem_page(&mut self, pid: u32, v_addr: VAddr, offset: PageOffset, data: Vec<u8>) -> Result<(), String> {
+        if data.len() + offset as usize > PageOffset::MAX as usize {
+            return Err(format!("Write exceeds memory-page-bounds: {} + {offset}", data.len()))
+        }
+        let v_addr_split = VAddrSplit::from(v_addr);
+        let pte = self.fetch_pte(pid, v_addr_split.lower.join())?;
+        if !pte.v_bit {
+            return Err(format!("Attempted write to invalid address: {v_addr}"))
+        }
+        if ! pte.p_bit {
+            todo!("Write to non-present memory page");
+        }
+
+        let page = &mut self.data[pte.page_frame_id as usize].unwrap();
+        todo!("Write to present memory page");
+        todo!("Write to memory page")
+    }
+
     /// Finds a free page frame in RAM.
     /// Makes page-replacement-call if necessary.
     /// Returns the page frame id or none.
@@ -99,10 +118,11 @@ impl MMU {
             existing_pte.p_bit = false;
             existing_pte.page_frame_id
         };
-        println!("Freeing {existing_pf_id}");
+        println!("Freeing {existing_pf_id} for pid {pid}");
         let mem_page = self.data[existing_pf_id as usize].ok_or(format!(
             "Expected mem page #{existing_pf_id} to be present."
         ))?;
+        // TODO: write to disk only for modified pages.
         let offset = Self::swap_page_to_disk(&mut self.swap, mem_page)?;
         let existing_pte = self.fetch_pte_mut(pid, v_addr_lower)?; // This call should be
         // refactored away!
@@ -118,16 +138,26 @@ impl MMU {
     /// of the page that is to be replaced.
     fn page_replacement(&mut self) -> (u32, VAddrLower) {
         // Current implementation: Random selection
-        let pt = self.page_tables.first().unwrap();
-        let present_page_idx = pt.levels[0]
-            .values
-            .iter()
-            .enumerate()
-            .find(|(_, v)| v.p_bit)
-            .map(|(i, _)| i)
-            .unwrap();
-        let v_addr_lower = VAddrLowerSplit::new(0, present_page_idx as u8).join();
-        (pt.pid, v_addr_lower)
+        let mut pt_pid: Option<u32> = None;
+        let mut present_page_idx: Option<usize> = None;
+        for pt in &self.page_tables {
+            println!("Levls: {:?}", pt.levels[0]);
+            present_page_idx = pt.levels[0]
+                .values
+                .iter()
+                .enumerate()
+                .find(|(_, v)| v.p_bit)
+                .map(|(i, _)| i);
+            if present_page_idx.is_some() {
+                pt_pid = Some(pt.pid);
+                break;
+            }
+        }
+        if present_page_idx.is_none() {
+            panic!("No present page found")
+        }
+        let v_addr_lower = VAddrLowerSplit::new(0, present_page_idx.unwrap() as u8).join();
+        (pt_pid.unwrap(), v_addr_lower)
     }
 
     /// Swaps a page onto disk.
@@ -176,7 +206,7 @@ impl MMU {
         &mut self,
         pid: u32,
         v_addr: VAddr,
-    ) -> Result<(MemPage, PageOffset), String> {
+    ) -> Result<(&Option<MemPage>, PageOffset), String> {
         let v_addr_split = VAddrSplit::from(v_addr);
         let id = {
             let pte = self.fetch_pte(pid, v_addr_split.lower.join())?;
@@ -186,13 +216,17 @@ impl MMU {
                 return Err(format!("Trying to fetch invalid address {v_addr}."));
             }
             if !pte.p_bit {
+                let new_pf_id = self.find_free_slot()?;
                 let page = self.swap.fetch_page_from_disk(pf_id)?;
-                return Ok((page, v_addr_split.offset));
+                self.data[new_pf_id as usize] = Some(page);
+                return Ok((&self.data[new_pf_id as usize], v_addr_split.offset));
             }
             pte.page_frame_id as usize
         };
-        let page = self.data[id].ok_or(format!("Memory page is missing for: {id}."))?;
-        Ok((page, v_addr_split.offset))
+        if self.data[id].is_none() {
+            return Err(format!("Memory page is missing for: {id}."));
+        }
+        Ok((&self.data[id], v_addr_split.offset))
     }
 }
 
