@@ -78,6 +78,10 @@ pub struct PageTableNode {
 /// Entry to PT-Nodes.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct PtNodeEntry {
+    /// Is PTE valid?
+    /// Non-existing PTEs are marked with v_bit = false.
+    pub v_bit: bool,
+
     /// Present in memory or swapped to disk?
     pub p_bit: bool,
 
@@ -94,6 +98,7 @@ impl PtNodeEntry {
     pub fn new(page_frame_id: PageFrameId) -> Self {
         Self {
             page_frame_id,
+            v_bit: true, // new is itialized
             p_bit: true,
             ..Default::default()
         }

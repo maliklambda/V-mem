@@ -1,5 +1,6 @@
 use crate::{
     page_table::{MemPage, PageTable, PtNodeEntry},
+    swap::Swap,
     v_addr::{PageOffset, VAddr, VAddrLower, VAddrLowerSplit, VAddrSplit},
 };
 
@@ -21,6 +22,11 @@ pub struct MMU {
     pub latest_free_spot: PageFrameId,
     pub data: [Option<MemPage>; MEM_SIZE],
     pub page_tables: Vec<PageTable>,
+
+    /// Keep track of pages swapped out to disk.
+    /// This would usually be held by the kernel.
+    /// But since we do not have one here, the MMU keeps track of all swaps.
+    pub swap: Swap,
     // /// TODO: Add TLB-caching
     // tlb: TLB,
 }
@@ -97,6 +103,9 @@ impl MMU {
         let id = {
             let pte = self.fetch_pte(pid, v_addr_split.lower.join())?;
             println!("PTE: {:?}", pte);
+            if !pte.v_bit {
+                return Err(format!("Trying to fetch invalid address {v_addr}."));
+            }
             if !pte.p_bit {
                 todo!("Fetch non-present memory page");
             }
@@ -110,3 +119,29 @@ impl MMU {
 /// Struct to emulate the TLB
 /// Stores cached v-address to p-address translation.
 pub struct TLB {}
+
+#[test]
+fn mem_page_allocation_basic() {
+    let (pid1, pid2): (u32, u32) = (0, 1);
+    let mut mmu = MMU::default();
+    mmu.allocate_pt(pid1).unwrap();
+    mmu.allocate_pt(pid2).unwrap();
+    let v_addr1 = mmu.allocate_mem_page(pid1).unwrap();
+    let (_mem_page1, offset1) = mmu.fetch_mem_page(pid1, v_addr1).unwrap();
+    let v_addr2 = mmu.allocate_mem_page(pid2).unwrap();
+    let (_mem_page2, offset2) = mmu.fetch_mem_page(pid1, v_addr1).unwrap();
+    assert_eq!(v_addr1, v_addr2);
+    assert_eq!(offset1, offset2);
+}
+
+#[test]
+#[should_panic(
+    expected = "called `Result::unwrap()` on an `Err` value: \"Trying to fetch invalid address 0."
+)]
+fn fetch_invalid_virtual_address_fails() {
+    let non_existing_v_addr: VAddr = 0;
+    let pid: u32 = 0;
+    let mut mmu = MMU::default();
+    mmu.allocate_pt(pid).unwrap();
+    let (_mem_page1, _offset1) = mmu.fetch_mem_page(pid, non_existing_v_addr).unwrap();
+}
