@@ -58,11 +58,16 @@ impl PageTable {
     /// Retrieves a memory page
     /// Returns the page table entry
     pub fn get_pte(&self, v_addr_lower: VAddrLower) -> Result<&PtNodeEntry, String> {
-        if v_addr_lower > self.latest {
-            return Err(format!("Invalid address: {v_addr_lower}"));
-        }
         let lower_split = VAddrLowerSplit::from(v_addr_lower);
         Ok(&self.levels[lower_split.level_idx as usize].values
+            [lower_split.pt_node_arr_idx as usize])
+    }
+
+    /// Retrieves a memory page
+    /// Returns the page table entry
+    pub fn get_pte_mut(&mut self, v_addr_lower: VAddrLower) -> Result<&mut PtNodeEntry, String> {
+        let lower_split = VAddrLowerSplit::from(v_addr_lower);
+        Ok(&mut self.levels[lower_split.level_idx as usize].values
             [lower_split.pt_node_arr_idx as usize])
     }
 }

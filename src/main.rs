@@ -2,6 +2,7 @@ use crate::mmu::MMU;
 
 pub mod mmu;
 pub mod page_table;
+pub mod pra;
 pub mod swap;
 pub mod v_addr;
 
@@ -25,6 +26,20 @@ fn main() {
     let (mem_page, offset) = mmu.fetch_mem_page(pid1, v_addr1).unwrap();
     println!(
         "VADDR2: {v_addr2}; MemPage: {:?}; offset: {offset}",
+        mem_page
+    );
+    let v_addr3 = mmu.allocate_mem_page(pid2).unwrap();
+    println!("VADDR3_PRE: {v_addr3}");
+    println!("{:?}", mmu.data[0]);
+    println!("{:?}", mmu);
+    let (mem_page, offset) = mmu.fetch_mem_page(pid2, v_addr3).unwrap();
+    println!(
+        "VADDR3: {v_addr3}; MemPage: {:?}; offset: {offset}",
+        mem_page
+    );
+    let (mem_page, offset) = mmu.fetch_mem_page(pid1, v_addr1).unwrap();
+    println!(
+        "VADDR1: {v_addr1}; MemPage: {:?}; offset: {offset}",
         mem_page
     );
 }
